@@ -11,7 +11,7 @@ library(modelsummary)
 pums <- readRDS("data/pums_clean.rds")
 
 ## OLS
-ols_model <- lm(
+ols_nofe <- lm(
   logwage ~ immigrant + age + age2 + hours +
     edu_undergrad + occ_bluecollar + sex,
   data = pums
@@ -21,7 +21,7 @@ ols_statefe <- lm(
      edu_undergrad + occ_bluecollar + sex + state_fe,
    data = pums
 )
-modelsummary(list(ols_model, ols_statefe) , output = "output/ols_result.xlsx")
+modelsummary(list(ols_nofe, ols_statefe) , output = "output/ols_result.xlsx")
 
 ## Oaxaca-Blinder
 oaxaca_nofe <- oaxaca(
@@ -44,13 +44,14 @@ datasummary_df(
     cbind(Model = "No State FE", as.data.frame(t(oaxaca_df1$threefold$overall))),
     cbind(Model = "With State FE", as.data.frame(t(oaxaca_df2$threefold$overall)))
   ),
+  fmt = "%.4f",
   output = "output/oaxaca_results.xlsx"
 )
 
 ## Quantile (It's going to be slow due to data size)
 qr25 <- rq(
     logwage ~ immigrant + age + age2 + hours +
-      edu_undergrad + occ_bluecollar + sex,
+      edu_undergrad + occ_bluecollar + sex + state_fe,
     data = pums,
     method = "br",
     tau = 0.25
@@ -59,7 +60,7 @@ qr25_df <- summary(qr25, se = "nid")
 
 qr50 <- rq(
     logwage ~ immigrant + age + age2 + hours +
-        edu_undergrad + occ_bluecollar + sex,
+        edu_undergrad + occ_bluecollar + sex + state_fe,
     data = pums,
     method = "br",
     tau = 0.5
@@ -68,7 +69,7 @@ qr50_df <- summary(qr50, se = "nid")
 
 qr75 <- rq(
     logwage ~ immigrant + age + age2 + hours +
-        edu_undergrad + occ_bluecollar + sex,
+        edu_undergrad + occ_bluecollar + sex + state_fe,
     data = pums,
     method = "br",
     tau = 0.75
@@ -93,7 +94,9 @@ qr_result <- dplyr::bind_rows(
   qr75_df_full
 ) %>% dplyr::select(tau, term, everything())
 
-datasummary_df(qr_result, output = "output/qr_result.xlsx")
+datasummary_df(qr_result,
+  fmt = "%.4f",
+ output = "output/qr_result_statefe.xlsx")
 
 ## Plotting
 # Quantile results (immigrant coefficient)
@@ -106,7 +109,7 @@ immigrant_plot_df <- data.frame(
   )
 )
 # OLS results (immigrant coefficient)
-ols_coef <- coef(ols_model)["immigrant"]
+ols_coef <- coef(ols_statefe)["immigrant"]
 
 # ggplot
 imm_plot = ggplot(immigrant_plot_df, aes(x = tau, y = coef)) +
